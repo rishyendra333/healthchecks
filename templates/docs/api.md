@@ -22,6 +22,8 @@ Endpoint Name                                         | Endpoint Address
 [Create a new check](#create-check)                   | `POST SITE_ROOT/api/v3/checks/`
 [Update an existing check](#update-check)             | `POST SITE_ROOT/api/v3/checks/<uuid>`
 [Pause monitoring of a check](#pause-check)           | `POST SITE_ROOT/api/v3/checks/<uuid>/pause`
+[Pause multiple checks](#bulk-pause)                  | `POST SITE_ROOT/api/v3/checks/bulk/pause`
+[Resume multiple checks](#bulk-resume)                | `POST SITE_ROOT/api/v3/checks/bulk/resume`
 [Resume monitoring of a check](#resume-check)         | `POST SITE_ROOT/api/v3/checks/<uuid>/resume`
 [Delete check](#delete-check)                         | `DELETE SITE_ROOT/api/v3/checks/<uuid>`
 **Pings**                                             |
@@ -1164,6 +1166,55 @@ header is sometimes required by some network proxies and web servers.
   "timeout": 3600
 }
 ```
+
+
+## Pause Multiple Checks {: #bulk-pause .rule }
+
+`POST SITE_ROOT/api/v3/checks/bulk/pause`
+
+Pauses several checks in one request. Select the checks either by a list of
+UUIDs, or by a tag. Checks that are already paused are left unchanged.
+
+### Request Parameters
+
+checks
+:   array of strings, optional. UUIDs of the checks to pause.
+
+tag
+:   string, optional. Pause all checks that have this tag. Ignored if `checks`
+    is present.
+
+### Response Codes
+
+200 OK
+:   The request succeeded.
+
+400 Bad Request
+:   The request is not well-formed, or neither `checks` nor `tag` was given.
+
+401 Unauthorized
+:   The API key is either missing or invalid.
+
+### Example Request
+
+```bash
+curl SITE_ROOT/api/v3/checks/bulk/pause \
+    --request POST --header "X-Api-Key: your-api-key" \
+    --data '{"tag": "backups"}'
+```
+
+The response contains the selected checks, in the same format as
+[List Existing Checks](#list-checks), and `n_changed`, the number of checks
+whose status changed.
+
+
+## Resume Multiple Checks {: #bulk-resume .rule }
+
+`POST SITE_ROOT/api/v3/checks/bulk/resume`
+
+Resumes several paused checks in one request. Accepts the same parameters and
+returns the same response as [Pause Multiple Checks](#bulk-pause). Checks that
+are not paused are left unchanged.
 
 
 ## Delete Check {: #delete-check .rule }

@@ -558,17 +558,12 @@ def single(request: HttpRequest, code: UUID) -> HttpResponse:
     return get_check(request, code)
 
 
-@cors("POST")
-@csrf_exempt
-@authorize
-def pause(request: ApiRequest, code: UUID) -> HttpResponse:
-    check = get_object_or_404(Check, code=code)
-    if check.project_id != request.project.id:
-        return HttpResponseForbidden()
+def _pause_check(check: Check) -> bool:
+    """Pause the check. Return False if the check was already paused."""
 
     # Return early, without creating a flip object, if the check is already paused
     if check.status == "paused":
-        return JsonResponse(check.to_dict(v=request.v))
+        return False
 
     # Track the status change for correct downtime calculation in Check.downtimes()
     check.create_flip("paused", mark_as_processed=True)
@@ -581,7 +576,34 @@ def pause(request: ApiRequest, code: UUID) -> HttpResponse:
     # After pausing a check we must check if all checks are up,
     # and Profile.next_nag_date needs to be cleared out:
     check.project.update_next_nag_dates()
+    return True
 
+
+def _resume_check(check: Check) -> bool:
+    """Resume a paused check. Return False if the check was not paused."""
+
+    if check.status != "paused":
+        return False
+
+    check.create_flip("new", mark_as_processed=True)
+
+    check.status = "new"
+    check.last_start = None
+    check.last_ping = None
+    check.alert_after = None
+    check.save(update_fields=("status", "last_start", "last_ping", "alert_after"))
+    return True
+
+
+@cors("POST")
+@csrf_exempt
+@authorize
+def pause(request: ApiRequest, code: UUID) -> HttpResponse:
+    check = get_object_or_404(Check, code=code)
+    if check.project_id != request.project.id:
+        return HttpResponseForbidden()
+
+    _pause_check(check)
     return JsonResponse(check.to_dict(v=request.v))
 
 
@@ -593,18 +615,78 @@ def resume(request: ApiRequest, code: UUID) -> HttpResponse:
     if check.project_id != request.project.id:
         return HttpResponseForbidden()
 
-    if check.status != "paused":
+    if not _resume_check(check):
         return HttpResponse("check is not paused", status=409)
 
-    check.create_flip("new", mark_as_processed=True)
-
-    check.status = "new"
-    check.last_start = None
-    check.last_ping = None
-    check.alert_after = None
-    check.save(update_fields=("status", "last_start", "last_ping", "alert_after"))
-
     return JsonResponse(check.to_dict(v=request.v))
+
+
+class BulkSpec(BaseModel):
+    checks: list[str] | None = Field(None, max_length=1000)
+    tag: str | None = Field(None, max_length=500)
+
+
+def _bulk_select(request: ApiRequest) -> tuple[list[Check], str | None]:
+    """Parse a bulk request body and return (checks, error message)."""
+
+    try:
+        spec = BulkSpec.model_validate(request.json, strict=True)
+    except ValidationError as e:
+        return [], format_first_error(e)
+
+    q = Check.objects.select_related("project")
+    if spec.checks is not None:
+        for code in spec.checks:
+            if not is_valid_uuid_string(code):
+                return [], "json validation error: checks contains an invalid uuid"
+        q = q.filter(code__in=spec.checks)
+    elif spec.tag:
+        # approximate filtering by tag, precise filtering below
+        q = q.filter(project=request.project, tags__contains=spec.tag)
+    else:
+        return [], "json validation error: checks or tag is required"
+
+    result = []
+    for check in q.order_by("created"):
+        if spec.tag and not check.matches_tag_set({spec.tag}):
+            continue
+        result.append(check)
+
+    return result, None
+
+
+@cors("POST")
+@csrf_exempt
+@authorize
+def bulk_pause(request: ApiRequest) -> HttpResponse:
+    checks, error_msg = _bulk_select(request)
+    if error_msg:
+        return JsonResponse({"error": error_msg}, status=400)
+
+    changed = [check for check in checks if _pause_check(check)]
+    return JsonResponse(
+        {
+            "checks": [check.to_dict(v=request.v) for check in checks],
+            "n_changed": len(changed),
+        }
+    )
+
+
+@cors("POST")
+@csrf_exempt
+@authorize
+def bulk_resume(request: ApiRequest) -> HttpResponse:
+    checks, error_msg = _bulk_select(request)
+    if error_msg:
+        return JsonResponse({"error": error_msg}, status=400)
+
+    changed = [check for check in checks if _resume_check(check)]
+    return JsonResponse(
+        {
+            "checks": [check.to_dict(v=request.v) for check in checks],
+            "n_changed": len(changed),
+        }
+    )
 
 
 @cors("GET")
