@@ -148,6 +148,7 @@ class CheckDict(TypedDict):
     timeout: NotRequired[int]
     schedule: NotRequired[str]
     tz: NotRequired[str]
+    snoozed_until: str | None
 
 
 @dataclass
@@ -221,6 +222,8 @@ class Check(models.Model):
     has_confirmation_link = models.BooleanField(default=False)
     alert_after = models.DateTimeField(null=True, blank=True, editable=False)
     status = models.CharField(max_length=6, choices=STATUSES, default="new")
+    # While snoozed, the check keeps tracking pings but does not send alerts.
+    snoozed_until = models.DateTimeField(null=True, blank=True)
 
     # Used to pass downtime data to report templates. Not persisted to db.
     past_downtimes: list[DowntimeRecord] | None = None
@@ -348,6 +351,12 @@ class Check(models.Model):
 
         return None
 
+    def is_snoozed(self, at: datetime | None = None) -> bool:
+        """Return True if alerts for this check are snoozed at the given time."""
+        if self.snoozed_until is None:
+            return False
+        return self.snoozed_until > (at or now())
+
     @cached_property
     def cached_status(self) -> str:
         return self.get_status()
@@ -463,6 +472,7 @@ class Check(models.Model):
             # Optimization: construct badge URLs manually instead of using reverse().
             # This is significantly quicker when returning hundreds of checks.
             "badge_url": f"{settings.SITE_ROOT}/b/2/{self.badge_key}.svg",
+            "snoozed_until": isostring(self.snoozed_until) if self.is_snoozed() else None,
         }
 
         if self.last_duration:
@@ -1392,6 +1402,7 @@ class Flip(models.Model):
         """Return a list of channels that need to be notified.
 
         * Exclude all channels for new->up and paused->up transitions.
+        * Exclude all channels if the check was snoozed when the flip happened.
         * Exclude disabled channels
         * Exclude channels where transport.is_noop(status) returns True
         * Sort channels by last_notify_duration (shorter durations first)
@@ -1399,6 +1410,10 @@ class Flip(models.Model):
 
         # Don't send alerts on new->up and paused->up transitions
         if self.new_status == "up" and self.old_status in ("new", "paused"):
+            return []
+
+        # Don't send alerts while the check is snoozed
+        if self.owner.is_snoozed(at=self.created):
             return []
 
         if self.new_status not in ("up", "down"):

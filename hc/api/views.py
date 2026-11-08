@@ -72,6 +72,7 @@ class Spec(BaseModel):
     name: str | None = Field(None, max_length=100)
     schedule: str | None = Field(None, max_length=100)
     slug: str | None = Field(None, max_length=100, pattern="^[a-z0-9-_]*$")
+    snooze: td | None = Field(None, ge=0, le=604800)
     start_kw: str | None = Field(None, max_length=200)
     subject: str | None = Field(None, max_length=200)
     subject_fail: str | None = Field(None, max_length=200)
@@ -92,7 +93,7 @@ class Spec(BaseModel):
                 data[k] = 0.0
         return data
 
-    @field_validator("timeout", "grace", mode="before")
+    @field_validator("timeout", "grace", "snooze", mode="before")
     @classmethod
     def convert_to_timedelta(cls, v: Any) -> Any:
         if isinstance(v, int):
@@ -411,6 +412,11 @@ def _update(check: Check, spec: Spec, v: int) -> None:
         if v is not None:
             setattr(check, key, v)
             update_fields.add(key)
+
+    if spec.snooze is not None:
+        # "snooze": 0 cancels an active snooze
+        check.snoozed_until = now() + spec.snooze if spec.snooze else None
+        update_fields.add("snoozed_until")
 
     check.alert_after = check.going_down_after()
     update_fields.add("alert_after")
