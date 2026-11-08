@@ -427,8 +427,15 @@ def _update(check: Check, spec: Spec, v: int) -> None:
         check.channel_set.set(new_channels)
 
 
+STATUS_FILTER_VALUES = {"new", "up", "grace", "down", "paused", "started"}
+
+
 @authorize_read
-def get_checks(request: ApiRequest) -> JsonResponse:
+def get_checks(request: ApiRequest) -> HttpResponse:
+    statuses = set(request.GET.getlist("status"))
+    if not statuses.issubset(STATUS_FILTER_VALUES):
+        return HttpResponseBadRequest("invalid status filter")
+
     q = Check.objects.filter(project=request.project)
     if not request.readonly:
         # Use QuerySet.only() and Prefetch() to prefetch channel codes only:
@@ -446,8 +453,16 @@ def get_checks(request: ApiRequest) -> JsonResponse:
     checks = []
     for check in q:
         # precise, final filtering
-        if not tags or check.matches_tag_set(tags):
-            checks.append(check.to_dict(readonly=request.readonly, v=request.v))
+        if tags and not check.matches_tag_set(tags):
+            continue
+
+        doc = check.to_dict(readonly=request.readonly, v=request.v)
+        # Filter by the status as reported in the response, so the filter
+        # agrees with what the client sees (including "started" in v1).
+        if statuses and doc["status"] not in statuses:
+            continue
+
+        checks.append(doc)
 
     return JsonResponse({"checks": checks})
 
