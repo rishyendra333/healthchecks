@@ -418,6 +418,15 @@ class ProjectManager(models.Manager["Project"]):
                 if project.compare_api_key(api_key):
                     return project
 
+            # A recently rotated key is still accepted during its grace period
+            q = Project.objects.filter(
+                api_key_previous__startswith=secret8,
+                api_key_previous_expires__gt=now(),
+            )
+            for project in q:
+                if project.compare_api_key(api_key, previous=True):
+                    return project
+
         if accept_ro and api_key.startswith("hcr_"):
             secret8 = api_key[4:12]
             for project in Project.objects.filter(api_key_readonly__startswith=secret8):
@@ -437,6 +446,13 @@ class ProjectManager(models.Manager["Project"]):
                 return Project.objects.get(api_key=api_key)
             except Project.DoesNotExist:
                 pass
+
+            # A rotated legacy (plain text) key, still in its grace period
+            q = Project.objects.filter(
+                api_key_previous=api_key, api_key_previous_expires__gt=now()
+            )
+            if project := q.first():
+                return project
         elif accept_ro:
             try:
                 return Project.objects.get(api_key_readonly=api_key)
@@ -452,6 +468,10 @@ class Project(models.Model):
     owner = models.ForeignKey(User, models.CASCADE)
     api_key = models.CharField(max_length=128, blank=True, db_index=True)
     api_key_readonly = models.CharField(max_length=128, blank=True, db_index=True)
+    # When the read-write API key is rotated, the old key keeps working until
+    # api_key_previous_expires, so clients can be updated without downtime.
+    api_key_previous = models.CharField(max_length=128, blank=True, db_index=True)
+    api_key_previous_expires = models.DateTimeField(null=True, blank=True)
     badge_key = models.CharField(max_length=150, unique=True)
     ping_key = models.CharField(max_length=128, blank=True, null=True, unique=True)
     show_slugs = models.BooleanField(default=False)
@@ -566,6 +586,13 @@ class Project(models.Model):
         self.api_key = key_hash
         return key
 
+    def rotate_api_key(self, grace: td = td(hours=24)) -> str:
+        """Replace the read-write API key, keep the old one valid for `grace`."""
+        if self.api_key:
+            self.api_key_previous = self.api_key
+            self.api_key_previous_expires = now() + grace
+        return self.set_api_key()
+
     def set_api_key_readonly(self) -> str:
         key, key_hash = self._make_api_key("hcr_")
         self.api_key_readonly = key_hash
@@ -584,8 +611,10 @@ class Project(models.Model):
                 break
         return self.ping_key
 
-    def compare_api_key(self, key: str) -> bool:
-        if key.startswith("hcr_"):
+    def compare_api_key(self, key: str, previous: bool = False) -> bool:
+        if previous:
+            expected = self.api_key_previous
+        elif key.startswith("hcr_"):
             expected = self.api_key_readonly
         else:
             expected = self.api_key

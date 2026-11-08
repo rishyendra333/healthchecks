@@ -387,7 +387,8 @@ def project(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
                 return HttpResponseForbidden()
 
             if request.POST["create_key"] == "api_key":
-                ctx["new_key"] = project.set_api_key()
+                ctx["new_key"] = project.rotate_api_key()
+                ctx["key_rotated"] = bool(project.api_key_previous_expires)
             elif request.POST["create_key"] == "api_key_readonly":
                 ctx["new_key"] = project.set_api_key_readonly()
             elif request.POST["create_key"] == "ping_key":
