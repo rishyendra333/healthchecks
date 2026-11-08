@@ -115,10 +115,25 @@ tag=&lt;value&gt;
 
     `SITE_ROOT/api/v3/checks/?tag=foo&tag=bar`
 
+status=&lt;value&gt;
+:   Filters the checks and returns only the checks with the specified status.
+    Possible values: `new`, `up`, `grace`, `down`, `paused`, `started`. The
+    value is compared with the `status` field of each check in the response.
+
+    This parameter can be repeated multiple times. A check is returned if its
+    status matches any of the values.
+
+    Example:
+
+    `SITE_ROOT/api/v3/checks/?status=down&status=grace`
+
 ### Response Codes
 
 200 OK
 :   The request succeeded.
+
+400 Bad Request
+:   The `status` filter contains an unknown value.
 
 401 Unauthorized
 :   The API key is either missing or invalid.
