@@ -19,7 +19,7 @@ from django.shortcuts import redirect, render
 from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.pd import forms
 from hc.lib.urls import absolute_reverse
 
@@ -27,7 +27,7 @@ from hc.lib.urls import absolute_reverse
 @require_setting("PD_ENABLED")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
 
     # Simple Install Flow
     if settings.PD_APP_ID:
@@ -69,7 +69,7 @@ def add_complete(request: AuthenticatedHttpRequest) -> HttpResponse:
     if request.GET.get("state") != state:
         return HttpResponseForbidden()
 
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
 
     doc = json.loads(request.GET["config"])
     for item in doc["integration_keys"]:

@@ -19,13 +19,13 @@ from hc.accounts.http import AuthenticatedHttpRequest
 from hc.accounts.models import Project
 from hc.api.models import Check
 from hc.front.decorators import require_setting
-from hc.front.views import _get_project_for_user
+from hc.front.access import project_for_user
 
 
 @require_setting("PROMETHEUS_ENABLED")
 @login_required
 def add_prometheus(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project, _rw = _get_project_for_user(request, code)
+    project, _rw = project_for_user(request, code)
     ctx = {
         "page": "channels",
         "project": project,

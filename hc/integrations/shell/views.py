@@ -9,7 +9,7 @@ from django.shortcuts import redirect, render
 from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.shell.forms import ShellForm
 
 
@@ -45,6 +45,6 @@ def shell_form(request: AuthenticatedHttpRequest, channel: Channel) -> HttpRespo
 @require_setting("SHELL_ENABLED")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     channel = Channel(project=project, kind="shell")
     return shell_form(request, channel)

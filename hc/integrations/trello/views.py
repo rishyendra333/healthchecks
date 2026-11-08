@@ -14,7 +14,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.trello.forms import AddTrelloForm
 from hc.lib import curl
 from hc.lib.urls import absolute_reverse
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 @require_setting("TRELLO_APP_KEY")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     if request.method == "POST":
         form = AddTrelloForm(request.POST)
         if not form.is_valid():
