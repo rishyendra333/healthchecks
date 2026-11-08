@@ -93,6 +93,8 @@
                         </td>
                         <td class="text-right">
                             {% if project.api_key %}
+                            <a href="#" data-create-key="api_key">Rotate</a>
+                            &middot;
                             <a href="#"
                                data-revoke-key="api_key"
                                data-name="API key">Revoke</a>
@@ -590,6 +592,13 @@
 {% endif %}
 
 {% if new_key %}
+{% if key_rotated %}
+<p class="alert alert-info">
+    The previous API key keeps working until
+    {{ project.api_key_previous_expires|date:"M j, H:i" }} UTC.
+    Update your clients before then.
+</p>
+{% endif %}
 <div id="key-created-modal" class="modal">
     <div class="modal-dialog">
         <div class="modal-content">

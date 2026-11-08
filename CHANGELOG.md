@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 ## v5.1-dev - Unreleased
 
+### Improvements
+- Add API key rotation with a 24-hour grace period for the previous key
+
 ### Bug Fixes
 - Security: strip CR and LF from header lines in the webhook integration
 - Fix Management API validation logic to reject NUL characters
