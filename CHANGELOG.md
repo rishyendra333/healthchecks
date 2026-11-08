@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 ## v5.1-dev - Unreleased
 
+### Improvements
+- Add Management API endpoints for pausing and resuming checks in bulk
+
 ### Bug Fixes
 - Security: strip CR and LF from header lines in the webhook integration
 - Fix Management API validation logic to reject NUL characters
