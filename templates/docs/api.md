@@ -433,6 +433,15 @@ grace
 
     Minimum: 60 (one minute), maximum: 31536000 (365 days).
 
+snooze
+:   Number, optional.
+
+    Snooze alerts for this check for the given number of seconds. While
+    snoozed, the check keeps receiving pings and tracking its status, but
+    SITE_NAME does not send notifications. Use `0` to cancel an active snooze.
+
+    Maximum: 604800 (7 days).
+
 schedule
 :   String, optional.
 
@@ -765,6 +774,15 @@ grace
     The grace period for this check in seconds.
 
     Minimum: 60 (one minute), maximum: 31536000 (365 days).
+
+snooze
+:   Number, optional.
+
+    Snooze alerts for this check for the given number of seconds. While
+    snoozed, the check keeps receiving pings and tracking its status, but
+    SITE_NAME does not send notifications. Use `0` to cancel an active snooze.
+
+    Maximum: 604800 (7 days).
 
 schedule
 :   String, optional.

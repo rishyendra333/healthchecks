@@ -124,6 +124,7 @@ class Command(BaseCommand):
         """Process a single check going down.
 
         1. Find a check with alert_after in the past, and status other than "down".
+           If the check is snoozed, skip it.
         2. Calculate its current status.
         3. If calculation throws an exception, push alert_after forward and re-raise.
         4. If the current status is not "down", update alert_after and return.
@@ -137,6 +138,11 @@ class Command(BaseCommand):
         check = q.order_by("alert_after").first()
         if check is None:
             return False
+
+        if check.is_snoozed():
+            # Alerts are snoozed. Leave the check alone, it will be evaluated
+            # again once the snooze expires.
+            return True
 
         old_status = check.status
         q = Check.objects.filter(id=check.id, status=old_status)
