@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.email import forms
 
 
@@ -67,7 +67,7 @@ def email_form(request: AuthenticatedHttpRequest, channel: Channel) -> HttpRespo
 
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     channel = Channel(project=project, kind="email")
     return email_form(request, channel)
 

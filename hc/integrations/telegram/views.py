@@ -18,7 +18,7 @@ from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.api.transports import TransportError
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.telegram import forms
 from hc.integrations.telegram.transport import Telegram
 
@@ -114,7 +114,7 @@ def add(request: AuthenticatedHttpRequest) -> HttpResponse:
         if not form.is_valid():
             return HttpResponseBadRequest()
 
-        project = _get_rw_project_for_user(request, form.cleaned_data["project"])
+        project, _ = project_for_user(request, form.cleaned_data["project"], need="write")
         channel = Channel(project=project, kind="telegram")
         channel.value = json.dumps(recipient)
         channel.save()

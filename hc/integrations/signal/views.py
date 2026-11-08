@@ -14,7 +14,7 @@ from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel, TokenBucket
 from hc.api.transports import TransportError
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.signal import forms
 from hc.integrations.signal.transport import Signal, SignalRateLimitFailure
 
@@ -56,7 +56,7 @@ def signal_form(request: HttpRequest, channel: Channel) -> HttpResponse:
 @require_setting("SIGNAL_CLI_SOCKET")
 @login_required
 def add_signal(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     channel = Channel(project=project, kind="signal")
     return signal_form(request, channel)
 

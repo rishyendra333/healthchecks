@@ -19,14 +19,14 @@ from django.views.decorators.http import require_POST
 
 from hc.api.models import Channel
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.integrations.github import client, forms
 
 
 @require_setting("GITHUB_CLIENT_ID")
 @login_required
 def add(request: HttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
 
     state = token_urlsafe()
     authorize_url = "https://github.com/login/oauth/authorize?"
@@ -48,7 +48,7 @@ def select(request: HttpRequest) -> HttpResponse:
         return HttpResponseForbidden()
 
     project_code = UUID(request.session["add_github_project"])
-    project = _get_rw_project_for_user(request, project_code)
+    project, _ = project_for_user(request, project_code, need="write")
 
     # Exchange code for access token, store it in session
     if "add_github_state" in request.session:
@@ -93,7 +93,7 @@ def select(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def save(request: HttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     if "add_github_token" not in request.session:
         return HttpResponseForbidden()
 

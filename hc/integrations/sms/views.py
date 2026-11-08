@@ -11,7 +11,7 @@ from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front import forms
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 
 
 @require_setting("TWILIO_AUTH")
@@ -53,6 +53,6 @@ def sms_form(request: HttpRequest, channel: Channel) -> HttpResponse:
 @require_setting("TWILIO_AUTH")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code)
     channel = Channel(project=project, kind="sms")
     return sms_form(request, channel)

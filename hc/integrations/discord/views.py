@@ -14,7 +14,7 @@ from django.shortcuts import redirect, render
 from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 from hc.lib import curl
 from hc.lib.urls import absolute_reverse
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @require_setting("DISCORD_CLIENT_ID")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
     state = token_urlsafe()
     auth_url = "https://discordapp.com/api/oauth2/authorize?" + urlencode(
         {
@@ -50,7 +50,7 @@ def add_complete(request: AuthenticatedHttpRequest) -> HttpResponse:
 
     state, code_str = request.session.pop("add_discord")
     code = UUID(code_str)
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
 
     if request.GET.get("error") == "access_denied":
         messages.warning(request, "Discord setup was cancelled.")

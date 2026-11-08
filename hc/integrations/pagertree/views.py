@@ -11,7 +11,7 @@ from hc.accounts.http import AuthenticatedHttpRequest
 from hc.api.models import Channel
 from hc.front import forms
 from hc.front.decorators import require_setting
-from hc.front.views import _get_rw_project_for_user
+from hc.front.access import project_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @require_setting("PAGERTREE_ENABLED")
 @login_required
 def add(request: AuthenticatedHttpRequest, code: UUID) -> HttpResponse:
-    project = _get_rw_project_for_user(request, code)
+    project, _ = project_for_user(request, code, need="write")
 
     if request.method == "POST":
         form = forms.AddUrlForm(request.POST)
